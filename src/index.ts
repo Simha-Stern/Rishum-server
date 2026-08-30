@@ -3,35 +3,31 @@ import cors from 'cors';
 import express from 'express';
 import { pool } from './db/index.js';
 import { router } from './router.js';
+import { errorHandler } from './middlewares/errorHandler.js';
+import { notFound } from './middlewares/notFound.js';
+import { requestLogger } from './middlewares/requestLogger.js';
+import { logger } from './utils/logger.js';
 
 const app = express();
-const port = Number(process.env['PORT'] ?? 3000);
+const port = Number(process.env['PORT'] ?? 3001);
 
 app.use(cors({ origin: process.env['CLIENT_ORIGIN'] ?? 'http://localhost:4200' }));
 app.use(express.json());
+app.use(requestLogger);
+
 app.use('/api', router);
-
 app.get('/health', (_request, response) => response.json({ status: 'ok' }));
+app.get('/ping', (_request, response) => response.json({ status: 'pong' }));
+app.use(notFound);
 
-app.use((_request, response) => response.status(404).json({ message: 'Route not found.' }));
-
-app.use(
-  (
-    error: unknown,
-    _request: express.Request,
-    response: express.Response,
-    _next: express.NextFunction,
-  ) => {
-    console.error(error);
-    response.status(500).json({ message: 'Internal server error.' });
-  },
-);
+app.use(errorHandler);
 
 const server = app.listen(port, () => {
-  console.log(`Rishum server is running at http://localhost:${port}`);
+  logger.info(`Rishum server is running at http://localhost:${port}`);
 });
 
 const shutdown = async () => {
+  logger.info('Shutting down Rishum server.');
   await pool.end();
   server.close();
 };
