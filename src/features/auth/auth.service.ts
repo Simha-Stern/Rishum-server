@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, gt } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { institutionMemberships, sessions, users } from '../../db/schema.js';
+import { institutionInvitations, institutionMemberships, sessions, users } from '../../db/Schemes/index.js';
 import { HttpError } from '../../lib/http-error.js';
 import type { AuthContext, CurrentUser } from './auth.types.js';
 import { hashPassword, verifyPassword } from './passwords.js';
@@ -52,15 +52,31 @@ export const authService = {
     const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
     if (existing) throw new HttpError(409, 'An account with this email already exists.');
 
-    const [user] = await db.insert(users).values({
-      email,
-      passwordHash: await hashPassword(input.password),
-      firstName: input.firstName.trim(),
-      lastName: input.lastName.trim(),
-      phone: input.phone?.trim() || null,
-      idNumber: input.idNumber?.trim() || null,
-      isSystemAdmin: isBootstrapAdmin(email),
-    }).returning();
+    const user = await db.transaction(async (transaction) => {
+      const [createdUser] = await transaction.insert(users).values({
+        email,
+        passwordHash: await hashPassword(input.password),
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+        phone: input.phone?.trim() || null,
+        idNumber: input.idNumber?.trim() || null,
+        isSystemAdmin: isBootstrapAdmin(email),
+      }).returning();
+      const invitations = await transaction.select({
+        institutionId: institutionInvitations.institutionId,
+        role: institutionInvitations.role,
+      }).from(institutionInvitations).where(eq(institutionInvitations.invitedEmail, email));
+
+      if (invitations.length) {
+        await transaction.insert(institutionMemberships).values(invitations.map((invitation) => ({
+          userId: createdUser.id,
+          institutionId: invitation.institutionId,
+          role: invitation.role,
+        }))).onConflictDoNothing();
+        await transaction.delete(institutionInvitations).where(eq(institutionInvitations.invitedEmail, email));
+      }
+      return createdUser;
+    });
 
     return { user: toCurrentUser(user), token: await createSession(user.id) };
   },

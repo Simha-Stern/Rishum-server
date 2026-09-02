@@ -22,6 +22,16 @@ export const requireAuthentication: RequestHandler = async (request, _response, 
   }
 };
 
+export const loadOptionalAuthentication: RequestHandler = async (request, _response, next) => {
+  try {
+    const token = bearerToken(request.header('authorization'));
+    if (token) request.auth = await authService.getContext(token) ?? undefined;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const requireSystemAdmin: RequestHandler = (request, _response, next) => {
   if (!request.auth?.user.isSystemAdmin) return next(new HttpError(403, 'System administrator permission is required.'));
   next();
@@ -31,7 +41,7 @@ export const requireInstitutionRole = (...roles: InstitutionRole[]): RequestHand
   const institutionId = request.params['institutionId'];
   const auth = request.auth;
   if (!auth || !institutionId) return next(new HttpError(401, 'Authentication is required.'));
-  if (auth.user.isSystemAdmin || auth.memberships.some((membership) => membership.institutionId === institutionId && roles.includes(membership.role))) {
+  if (auth.memberships.some((membership) => membership.institutionId === institutionId && roles.includes(membership.role))) {
     return next();
   }
   return next(new HttpError(403, 'You do not have permission for this institution.'));

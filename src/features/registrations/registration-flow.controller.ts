@@ -6,7 +6,7 @@ import {
   registrationFields,
   registrationFlows,
   registrationFormVersions,
-} from '../../db/schema.js';
+} from '../../db/Schemes/index.js';
 import { HttpError } from '../../lib/http-error.js';
 
 type FieldInput = {
@@ -41,8 +41,11 @@ const parseFields = (value: unknown): FieldInput[] => {
     if (!label || !allowedTypes.has(type)) throw new HttpError(400, `fields[${index}] has an invalid label or type.`);
     if (!Array.isArray(options) || options.some((option) => typeof option !== 'string')) throw new HttpError(400, `fields[${index}].options must be an array of strings.`);
     if (profileKey && !allowedProfileKeys.has(profileKey)) throw new HttpError(400, 'profileKey is not supported.');
+    const normalizedOptions = [...new Set(options.map((option) => option.trim()).filter(Boolean))];
+    if (type === 'select' && normalizedOptions.length === 0) throw new HttpError(400, `fields[${index}] must include at least one option.`);
+    if (type !== 'select' && normalizedOptions.length > 0) throw new HttpError(400, `fields[${index}].options are supported only for select fields.`);
     keys.add(key);
-    return { key, label, type, required: field['required'] === true, options, ...(profileKey ? { profileKey } : {}) };
+    return { key, label, type, required: field['required'] === true, options: normalizedOptions, ...(profileKey ? { profileKey } : {}) };
   });
 };
 
@@ -75,7 +78,7 @@ export const saveRegistrationFlowDraft: RequestHandler = async (request, respons
           sortOrder,
         })));
       }
-      await transaction.update(registrationFlows).set({ name, status: 'draft', updatedAt: new Date() }).where(eq(registrationFlows.id, flow.id));
+      await transaction.update(registrationFlows).set({ name, updatedAt: new Date() }).where(eq(registrationFlows.id, flow.id));
       await transaction.insert(auditLogs).values({
         actorUserId: request.auth!.user.id,
         institutionId,
@@ -96,14 +99,20 @@ export const publishRegistrationFlow: RequestHandler = async (request, response,
     const institutionId = requiredInstitutionId(request.params['institutionId']);
     const body = request.body as Record<string, unknown>;
     const version = body && typeof body['version'] === 'number' ? body['version'] : null;
+    const closesAtValue = body && typeof body['closesAt'] === 'string' ? body['closesAt'] : '';
+    const closesAt = new Date(closesAtValue);
     if (!version || !Number.isInteger(version)) throw new HttpError(400, 'A valid version number is required.');
+    if (Number.isNaN(closesAt.getTime()) || closesAt <= new Date()) throw new HttpError(400, 'A future registration closing date is required.');
     const [flow] = await db.select().from(registrationFlows).where(eq(registrationFlows.institutionId, institutionId)).limit(1);
     if (!flow) throw new HttpError(404, 'Registration flow was not found.');
     const [formVersion] = await db.select({ id: registrationFormVersions.id }).from(registrationFormVersions).where(
       and(eq(registrationFormVersions.flowId, flow.id), eq(registrationFormVersions.version, version)),
     ).limit(1);
     if (!formVersion) throw new HttpError(404, 'Registration form version was not found.');
-    await db.update(registrationFlows).set({ status: 'published', publishedVersion: version, updatedAt: new Date() }).where(eq(registrationFlows.id, flow.id));
+    const [field] = await db.select({ id: registrationFields.id }).from(registrationFields)
+      .where(eq(registrationFields.formVersionId, formVersion.id)).limit(1);
+    if (!field) throw new HttpError(400, 'At least one registration field is required before publishing.');
+    await db.update(registrationFlows).set({ status: 'published', publishedVersion: version, closesAt, updatedAt: new Date() }).where(eq(registrationFlows.id, flow.id));
     await db.insert(auditLogs).values({
       actorUserId: request.auth!.user.id,
       institutionId,
@@ -117,17 +126,36 @@ export const publishRegistrationFlow: RequestHandler = async (request, response,
   }
 };
 
+export const closeRegistrationFlow: RequestHandler = async (request, response, next) => {
+  try {
+    const institutionId = requiredInstitutionId(request.params['institutionId']);
+    const [flow] = await db.select().from(registrationFlows).where(eq(registrationFlows.institutionId, institutionId)).limit(1);
+    if (!flow) throw new HttpError(404, 'Registration flow was not found.');
+    await db.update(registrationFlows).set({ status: 'closed', closesAt: new Date(), updatedAt: new Date() }).where(eq(registrationFlows.id, flow.id));
+    await db.insert(auditLogs).values({
+      actorUserId: request.auth!.user.id,
+      institutionId,
+      action: 'registration_flow.closed',
+      entityType: 'registration_flow',
+      entityId: flow.id,
+    });
+    response.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getPublicRegistrationForm: RequestHandler = async (request, response, next) => {
   try {
     const institutionId = requiredInstitutionId(request.params['institutionId']);
     const [flow] = await db.select().from(registrationFlows).where(eq(registrationFlows.institutionId, institutionId)).limit(1);
-    if (!flow || flow.status !== 'published' || !flow.publishedVersion) throw new HttpError(404, 'Registration is not currently open.');
+    if (!flow || flow.status !== 'published' || !flow.publishedVersion || !flow.closesAt || flow.closesAt <= new Date()) throw new HttpError(404, 'Registration is not currently open.');
     const [version] = await db.select().from(registrationFormVersions).where(
       and(eq(registrationFormVersions.flowId, flow.id), eq(registrationFormVersions.version, flow.publishedVersion)),
     ).limit(1);
     if (!version) throw new HttpError(404, 'Published registration form was not found.');
     const fields = await db.select().from(registrationFields).where(eq(registrationFields.formVersionId, version.id)).orderBy(asc(registrationFields.sortOrder));
-    response.status(200).json({ institutionId, flow: { name: flow.name, version: version.version }, fields });
+    response.status(200).json({ institutionId, flow: { name: flow.name, version: version.version, closesAt: flow.closesAt }, fields });
   } catch (error) {
     next(error);
   }

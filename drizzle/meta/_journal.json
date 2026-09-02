@@ -15,6 +15,20 @@
       "when": 1788083024458,
       "tag": "0001_milky_ulik",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788170000000,
+      "tag": "0002_institution_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788259850060,
+      "tag": "0003_amazing_exiles",
+      "breakpoints": true
     }
   ]
 }
