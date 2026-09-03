@@ -1,4 +1,4 @@
-export type InstitutionRole = 'manager' | 'secretary';
+export type InstitutionRole = "manager" | "secretary";
 
 export interface CurrentUser {
   id: string;

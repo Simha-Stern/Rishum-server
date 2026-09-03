@@ -1,17 +1,28 @@
-import { index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
+import { users } from "./users.js";
 
 export const sessions = pgTable(
-  'sessions',
+  "sessions",
   {
-    id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    tokenHash: text('token_hash').notNull(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex('sessions_token_hash_unique').on(table.tokenHash),
-    index('sessions_user_id_idx').on(table.userId),
+    uniqueIndex("sessions_token_hash_unique").on(table.tokenHash),
+    index("sessions_user_id_idx").on(table.userId),
   ],
 );

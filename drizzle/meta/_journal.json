@@ -29,6 +29,20 @@
       "when": 1788259850060,
       "tag": "0003_amazing_exiles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788357908747,
+      "tag": "0004_curly_metal_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788426482100,
+      "tag": "0005_stale_sway",
+      "breakpoints": true
     }
   ]
 }

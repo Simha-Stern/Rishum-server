@@ -1,6 +1,6 @@
 {
-  "id": "1a86d0ac-b5cf-4ff9-8e9b-605ecf2b629e",
-  "prevId": "78cf084e-6d39-4bd6-a4ee-d6d8457a75b6",
+  "id": "66ec6e3d-2f3b-436f-b06b-6e8f9ee74f72",
+  "prevId": "c76786b9-996a-43a7-a4b8-caab80868627",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -204,6 +204,114 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.institution_invitations": {
+      "name": "institution_invitations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invited_email": {
+          "name": "invited_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invited_by_user_id": {
+          "name": "invited_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "institution_member_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "institution_invitations_institution_email_unique": {
+          "name": "institution_invitations_institution_email_unique",
+          "columns": [
+            {
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "invited_email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "institution_invitations_email_idx": {
+          "name": "institution_invitations_email_idx",
+          "columns": [
+            {
+              "expression": "invited_email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "institution_invitations_institution_id_institutions_id_fk": {
+          "name": "institution_invitations_institution_id_institutions_id_fk",
+          "tableFrom": "institution_invitations",
+          "tableTo": "institutions",
+          "columnsFrom": ["institution_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "institution_invitations_invited_by_user_id_users_id_fk": {
+          "name": "institution_invitations_invited_by_user_id_users_id_fk",
+          "tableFrom": "institution_invitations",
+          "tableTo": "users",
+          "columnsFrom": ["invited_by_user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.institutions": {
       "name": "institutions",
       "schema": "",
@@ -341,6 +449,87 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.registration_field_catalog": {
+      "name": "registration_field_catalog",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "options": {
+          "name": "options",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "profile_key": {
+          "name": "profile_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "registration_field_catalog_created_by_user_id_users_id_fk": {
+          "name": "registration_field_catalog_created_by_user_id_users_id_fk",
+          "tableFrom": "registration_field_catalog",
+          "tableTo": "users",
+          "columnsFrom": ["created_by_user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.registration_fields": {
       "name": "registration_fields",
       "schema": "",
@@ -357,6 +546,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "catalog_field_id": {
+          "name": "catalog_field_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "key": {
           "name": "key",
@@ -435,6 +630,15 @@
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "registration_fields_catalog_field_id_registration_field_catalog_id_fk": {
+          "name": "registration_fields_catalog_field_id_registration_field_catalog_id_fk",
+          "tableFrom": "registration_fields",
+          "tableTo": "registration_field_catalog",
+          "columnsFrom": ["catalog_field_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -477,6 +681,12 @@
         "published_version": {
           "name": "published_version",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closes_at": {
+          "name": "closes_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -636,7 +846,7 @@
           "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "form_version_id": {
           "name": "form_version_id",
